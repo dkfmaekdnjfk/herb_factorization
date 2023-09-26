@@ -1,7 +1,16 @@
-import pandas as pd
 import numpy as np
 
-composition = "감초(甘草), 당귀(當歸), 복령(茯苓), 백작약(白芍藥), 백출(白朮), 숙지황(熟地黃), 인삼(人蔘), 천궁(川芎)"
+# Sample NumPy array
+sample_array = np.array([
+    [1, 2, 3, 4, 5, 6, 7, 8],
+    [9, 10, 11, 12, 13, 14, 15, 16],
+    [17, 18, 19, 20, 21, 22, 23, 24]
+])
 
-text_list = composition.split(', ')
-print(text_list.type)
+# Get the 3rd and 8th columns
+columns_to_extract = [2, 7]  # 3rd column is index 2, and 8th column is index 7
+result_array = sample_array[:, columns_to_extract]
+
+# Print the result
+print("Extracted columns:")
+print(result_array)

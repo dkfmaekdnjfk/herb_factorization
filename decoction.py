@@ -1,9 +1,12 @@
+#######################################
 ### !!! 주석 작성을 일상화합니다 !!! ###
+#######################################
 
 
 ### STATUS 사용법
 # -- 특정 STATUS에서는 적용 후 바로 예외처리로 에러를 발생시켜 알고리즘을 종료시킵니다.
 # -- 정상 STATUS은 도중에 현재 어떤 상태인지를 체크하기 위해 사용합니다.
+
 
 ### 주석 작성 규칙 ###
 
@@ -28,14 +31,16 @@ class HerbMedicine:
     # 입력된 처방을 인스턴스화하는 클래스입니다.
     def __init__(self, name=None, source=None, indication=None, effect=None, note=None, composition=None, factorization=None):
         # 처방명, 출전, 주치, 효능, 비고, 구성, 인수분해
-        self.name = None
-        self.source = None
-        self.indication = None
-        self.effect = None
-        self.note = None
+        self.name = name
+        self.source = source
+        self.indication = indication
+        self.effect = effect
+        self.note = note
         # **PLAN** 입력된 내용들을 하나하나 분리해서 리스트로 저장하도록 작성해야 합니다.
         self.composition = composition if composition is None else self.save_list(composition)
         self.factorization = None
+    
+    # 개발예정) 입력받은 리스트를 저장할 때 요소가 괄호가 있다면 괄호를 분해하고 한글과 한자 중 하나만 저장하는 함수
 
     def save_list(self, composition):
         # composition을 알맞은 형식으로 저장하기 위해 사용되는 함수입니다.
@@ -63,6 +68,8 @@ class HerDataBase:
         self.basic_sheet = pd.read_excel(self.address, sheet_name="기본")
         self.herb_sheet = pd.read_excel(self.address, sheet_name="약재")
 
+    # 개발예정) 입력받은 리스트를 저장할 때 요소가 괄호가 있다면 괄호를 분해하고 한글과 한자 중 하나만 저장하는 함수
+
     # **PLAN** 검색과 관련한 모든 함수를 본 클래스에 제작합니다.
 
     def addrest_check(self):
@@ -72,14 +79,176 @@ class HerDataBase:
           # - 열  구성 : 이름, 출전, 주치, 효능, 비고, 구성, (인수분해)    
         return True
 
+
     # 각 sheet를 넘파이 배열로 저장하는 함수
     def sheet_to_numpy(self, pandas_data):
+        # 대분류, 소분류, 처방명, 출전, 주치, 효능, 비고, 구성, 인수분해
         numpy_array = pandas_data.to_numpy()
-        header = np.array(['대분류', '소분류', '이름', '치료원리', '출전', '비고', '구성'])
+        header = np.array(['대분류', '소분류', '이름', '주치', '효능', '출전', '비고', '구성'])
         numpy_data = np.vstack((header, numpy_array))
         return numpy_data
 
+
     # 개발예정) 처방명을 저장소에서 검색하는 함수
+    def find_decoction_name(self):
+        raise Exception("제작되지 않은 함수입니다.")
+
+
+    # 데이터베이스에서 입력한 데이터에 포함되는 기본방이 있는지 검색하는 함수
+    # 제공한 처방구성을 DB를 바탕으로 기본방의 포함 여부를 넘파이 배열로 출력합니다.
+    # 처방명, 구성, 포함여부, 주치, 효능
+    def basic_search(self, composition_numpy):
+        # 처방명, 구성, 포함여부, 효능, 주치를 인덱스로 하는 빈 넘파이 배열을 선언합니다.
+        factorization_decoction = np.array(['name', 'composition', 'TrueOrFalse', 'indication', 'effect'], dtype=object)
+
+        # 8번째 열이 구성이므로 DB의 basic_np에서 8번째 열을 가져와 새로운 넘파이 배열로 저장합니다.        
+        basic_np = self.sheet_to_numpy(self.basic_sheet)
+        basic_sheet = basic_np[1:, :]           # DB
+
+        for line in basic_sheet:
+            basic_list = line[7].split(', ')
+            # 제공한 처방구성의 구성들 중에 기본방의 구성 리스트에 있는지를 확인합니다. True/False로 반환합니다.
+            result = [element in composition_numpy for element in basic_list]
+            # 리스트에서 True의 비율을 계산합니다.
+            true_percentage = (sum(result) / len(result)) * 100
+
+            # **PLAN**
+            # 1. True가 절반 이상 있는지 확인합니다.
+            if true_percentage >= 50:
+            # 2. 절반 이상 있다면 해당 처방의 이름과 포함된 약재, 포함되지 않은 약재를 저장합니다.
+                name = line[2]
+                composition = line[7].split(', ')
+                trueorfalse = result
+                indication = line[3]
+                effect = line[4]
+                
+                new_data = np.array([name, composition, trueorfalse, indication, effect], dtype=object)
+
+                ### 230925 IDEA : 넘파이 배열로 저장해서 원하는 정보를 쉽게 가져오도록 합니다.
+                # Add the new row to the last row of the existing array
+                factorization_decoction = np.vstack((factorization_decoction, new_data))
+        
+        return factorization_decoction
+
+    # basic_search 함수로 출력된 넘파이 배열의 인수분해 결과를 제공한 처방구성의 넘파이 배열과 함께 조작합니다.
+    def herb_info_search(self, factorization_decoction, composition_numpy):    
+        # 처방명, 구성, 포함여부, 주치, 효능
+        Name = factorization_decoction[1:, 0]
+        Composition = factorization_decoction[1:, 1]
+        TrueOrFalse = factorization_decoction[1:, 2]
+        Indication = factorization_decoction[1:, 3]
+        Effect = factorization_decoction[1:, 4]
+
+        herb_np = self.sheet_to_numpy(self.herb_sheet)
+        herb_sheet = herb_np[1:, :]             # DB
+
+                # 2.1. 포함된 약재들과 포함되지 않은 약재들의 '비고' 정보를 '약재' 시트에서 가져와 저장합니다.
+        herb_in = {}        # 포함된 약재 리스트
+        herb_out = {}       # 포함되지 않은 약재 리스트
+        herb_else = {}      # 나머지 추가해야 할 약재 리스트
+        
+        # 포함된 처방 및 구성 딕셔너리
+        decoction_in = {}
+        for i in range(Name.shape[0]):
+            decoction_in[Name[i]] = Composition[i]
+
+        # **PLAN**
+        # trueorfalse 열에서 T/F 리스트를 찾아내고
+        for i in range(TrueOrFalse.shape[0]):
+            trueorfalse = TrueOrFalse[i]
+            composition = Composition[i]
+            # trueorfalse에서 true인 경우에 해당하는 해당 행의 composition 열에서 약재들을 고르고
+            for i in range(len(trueorfalse)):
+                if trueorfalse[i] == True:
+                    herb_in[composition[i]] = ""
+                else:
+                    herb_out[composition[i]] = ""
+
+        # 고른 약재들을 약재 시트에서 찾아내어서
+        # 대분류, 소분류, 처방명, 출전, 주치, 효능, 비고, 구성, 인수분해
+        Herb_Name = herb_sheet[:, 2]
+        Herb_Composition = herb_sheet[:, 7]
+        Herb_Indication = herb_sheet[:, 4]
+        Herb_Effect = herb_sheet[:, 5]
+        Herb_Info = herb_sheet[:, 6]
+
+        # 찾아낸 약재와 대응되는 비고 정보를 가져와서
+        # 약재 이름과 함께 저장합니다.
+        for i in range(Herb_Name.shape[0]):
+            herb = Herb_Name[i]
+            for key in herb_in.keys():
+                if herb == key:
+                    herb_in[key] = Herb_Info[i]
+
+        for i in range(Herb_Name.shape[0]):
+            herb = Herb_Name[i]
+            for key in herb_out.keys():
+                if herb == key:
+                    herb_out[key] = Herb_Info[i]
+
+            # 3. 기본방에서 포함된 것으로 판단된 약재들을 제외하고 남는 약재를 추려냅니다.
+        herb_else_name = [name for name in composition_numpy if name not in herb_in]
+        for i in range(Herb_Name.shape[0]):
+            herb = Herb_Name[i]
+            for key in herb_else_name:
+                if herb == key:
+                # 3.1. '약재' 시트에서 해당 약재들의 '비고' 정보를 가져옵니다.    
+                    herb_else[key] = Herb_Info[i]
+
+        return [decoction_in, herb_in, herb_out, herb_else]
+
+
+    def show_factorization_result(self, herb_info_search_result, composition_numpy, medicine):
+            # 4. 다음과 같이 정리하여 출력합니다.
+                # -- 1.0) 처방 관련 정보
+                    # -- 1.1) 처방구성 : 처방명-@@@@, 구성-약재1, 약재2, 약재a, 약재d, 약재X, 약재Y, 약재Z
+                    # -- 1.2) 처방효능 : @#$, %&^, *&^, %$#
+                # -- 2.0) 인수 처방 정보
+                    # -- 2.1) 포함처방 : A(약재1(+), 약재2(+), 약재3(-), 약재4(-)), B(약재a(+), 약재b(-), 약재c(-), 약재d(+))
+                    # -- 2.2) 포함효능 : 약재1-@@, 약재2-##, 약재a-$$, 약재d-%%
+                    # -- 2.3) 추가효능 : 약재X-@#$, 약재Y-#$%, 약재Z-%&*
+                    # -- 2.4) 제외효능 : 약재3-^^, 약재4-&&, 약재b-**, 약재c-~~
+                # -- 3.0) 기타
+
+        decoction_in = herb_info_search_result[0]
+        herb_in = herb_info_search_result[1]
+        herb_out = herb_info_search_result[2]
+        herb_else = herb_info_search_result[3]
+
+        print(f"1.0) 처방 관련 정보\n"
+              f"    1.1) 처방명   : {medicine.name}\n"
+              f"    1.2) 처방구성 : \n        {composition_numpy}\n"
+              f"    1.3) 처방효능 : {medicine.effect}\n"
+              f"    1.4) 처방주치 : {medicine.indication}\n"
+              )
+              
+        print(f"2.0) 인수 처방 정보")
+        print(f"    2.1) 포함처방 : ")
+
+        # Iterate through the decoction_in dictionary
+        for key, value in decoction_in.items():
+            transformed_list = []
+            for item in value:
+                if item in herb_in:
+                    transformed_list.append(f'{item}(+)')
+                else:
+                    transformed_list.append(f'{item}(-)')
+            decoction_in[key] = transformed_list
+
+        # Print the transformed decoction_in dictionary
+        for key, value in decoction_in.items():
+            print(f"        {key}: {value}")
+
+        print(f"    2.2) 포함효능 : ")
+        print(f"        {herb_in}")
+
+        print(f"    2.3) 추가효능 : ")
+        print(f"        {herb_else}")
+
+        print(f"    2.4) 제외효능 : ")
+        print(f"        {herb_out}")
+
+        print(f"3.0) 기타\n")                              
 
 # **PLAN** 개발예정) 입력받은 처방구성 리스트가 올바른 형식인지 확인하는 함수.
 # **PLAN** 데이터를 전달받으면 본 함수로 먼저 검사를 하고 다음 단계로 진행합니다.
@@ -227,10 +396,12 @@ else:
 basic_composition = basic_np[1:, 6]   # DB
 
   # 2-1. 먼저 '기본' 시트의 '구성' 중 전체가 그대로 포함되어 있는지 검색합니다.
-for composition in basic_composition:
-    basic_list = composition.split(', ')
-    result = [element in composition_numpy for element in basic_list]
-    print(result)
+  # **PLAN** class 내부의 함수로 다시 작성해야 합니다!
+
+### 230926 IDEA 간단하게 로직을 짰습니다. 
+basic_search_result = herb_DB.basic_search(composition_numpy)
+herb_info_search_result = herb_DB.herb_info_search(basic_search_result, composition_numpy)
+herb_DB.show_factorization_result(herb_info_search_result, composition_numpy, medicine)
 
     # 2-1-1. 만약 그대로 포함되어 있다면 기본 '처방명'과, 그의 '주치'와 '효능'을 불러와서 함께 저장합니다.
   # 2-2. 그대로 포함되어 있지 않다면 '기본' 시트의 '구성' 중 '주약'이 모두 포함되어 있는 '처방명'이 있는지 검색합니다.
