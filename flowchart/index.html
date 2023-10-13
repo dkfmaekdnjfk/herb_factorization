@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Flowchart App</title>
+</head>
+<body>
+    <table id="inputTable">
+        <tr>
+            <th>증상호소</th>
+            <th>추가질문</th>
+            <th>이학적검사</th>
+            <th>치료방법</th>
+            <th>피드백</th>
+            <th>주의사항</th>
+            <th>비고</th>
+        </tr>
+        <tr>
+            <td><input type="text"></td>
+            <td><input type="text"></td>
+            <td><input type="text"></td>
+            <td><input type="text"></td>
+            <td><input type="text"></td>
+            <td><input type="text"></td>
+            <td><input type="text"></td>
+        </tr>
+    </table>
+    <button onclick="addRow()">Add Row</button>
+    <button onclick="saveData()">Save</button>
+    <div id="flowchartDisplay"></div>
+    <script src="script.js"></script>
+</body>
+</html>
